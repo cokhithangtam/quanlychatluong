@@ -1803,9 +1803,10 @@
             filteredData = filteredData.filter(item => {
                 const hasCncTap = item.cnc_tap && item.cnc_tap.toString().trim() !== '';
                 const hasXlbmDanhNi = item.xlbm_danh_ni && item.xlbm_danh_ni.toString().trim() !== '';
+                const has3D = item.ma_cv && item.ma_cv.toString().toUpperCase().includes('3D');
 
-                // Chỉ giữ lại những dòng KHÔNG có dữ liệu trong 2 cột này
-                return !hasCncTap && !hasXlbmDanhNi;
+                // Chỉ giữ lại những dòng KHÔNG có dữ liệu trong cnc_tap, xlbm_danh_ni và KHÔNG có Mã CV 3D
+                return !hasCncTap && !hasXlbmDanhNi && !has3D;
             });
 
             console.log('Filtered Production Data (after excluding cnc_tap and xlbm_danh_ni):', {
