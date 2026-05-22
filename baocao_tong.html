@@ -923,60 +923,23 @@
         function calculateOpticalData(filters) {
             if (!globalData.dataOpticalReport) return { machineProduction: 0, personProduction: 0, machine2Production: 0 };
 
-            // Lọc dữ liệu optical theo filter
-            const filteredOptical = globalData.dataOpticalReport.filter(item => {
-                // Áp dụng filter ngày tháng
-                if (filters.dateFrom && filters.dateTo && item[filters.dateField]) {
-                    const itemDate = new Date(item[filters.dateField]);
-                    const fromDate = new Date(filters.dateFrom);
-                    const toDate = new Date(filters.dateTo);
-
-                    fromDate.setHours(0, 0, 0, 0);
-                    toDate.setHours(23, 59, 59, 999);
-                    itemDate.setHours(0, 0, 0, 0);
-
-                    if (itemDate < fromDate || itemDate > toDate) {
-                        return false;
-                    }
-                }
-
-                // Áp dụng filter ca làm việc
-                if (filters.ca_lam_viec && filters.ca_lam_viec !== '') {
-                    const itemShift = item.ca_lam_viec ? item.ca_lam_viec.toString().trim() : '';
-                    if (itemShift !== filters.ca_lam_viec) {
-                        return false;
-                    }
-                }
-
-                return true;
-            });
+            // SỬ DỤNG HÀM LỌC CHUNG ĐÃ ĐƯỢC SỬA Ở TRÊN
+            const filteredOptical = filterData(globalData.dataOpticalReport, filters);
 
             // Tính sản lượng cho máy 3D QUANG (so_may = "3D QUANG")
             const machineProduction = filteredOptical
-                .filter(item => item.so_may && item.so_may.toString().trim() === '3D QUANG')
-                .reduce((sum, item) => {
-                    const slOk = parseInt(item.sl_ok || 0);
-                    const slNg = parseInt(item.sl_ng || 0);
-                    return sum + slOk + slNg;
-                }, 0);
+                .filter(item => !!item.so_may && item.so_may.toString().trim() === '3D QUANG')
+                .reduce((sum, item) => sum + parseInt(item.sl_ok || 0) + parseInt(item.sl_ng || 0), 0);
 
             // Tính sản lượng cho máy 3D QUANG 2 (so_may = "3D QUANG 2")
             const machine2Production = filteredOptical
                 .filter(item => item.so_may && item.so_may.toString().trim() === '3D QUANG 2')
-                .reduce((sum, item) => {
-                    const slOk = parseInt(item.sl_ok || 0);
-                    const slNg = parseInt(item.sl_ng || 0);
-                    return sum + slOk + slNg;
-                }, 0);
+                .reduce((sum, item) => sum + parseInt(item.sl_ok || 0) + parseInt(item.sl_ng || 0), 0);
 
             // Tính sản lượng cho người đo (so_may trống)
             const personProduction = filteredOptical
                 .filter(item => !item.so_may || item.so_may.toString().trim() === '')
-                .reduce((sum, item) => {
-                    const slOk = parseInt(item.sl_ok || 0);
-                    const slNg = parseInt(item.sl_ng || 0);
-                    return sum + slOk + slNg;
-                }, 0);
+                .reduce((sum, item) => sum + parseInt(item.sl_ok || 0) + parseInt(item.sl_ng || 0), 0);
 
             console.log('Optical Data Calculation:', {
                 totalRecords: globalData.dataOpticalReport.length,
@@ -1235,8 +1198,18 @@
         function filterData(data, filters) {
             return data.filter(item => {
                 // Date filter
-                if (filters.dateFrom && filters.dateTo && item[filters.dateField]) {
+                if (filters.dateField) {
+                    const itemDateRaw = item[filters.dateField];
+                    if (!itemDateRaw || itemDateRaw.toString().trim() === "") {
+                        return false;
+                    }
+                }
+
+                if (filters.dateFrom && filters.dateTo && filters.dateField) {
                     const itemDate = new Date(item[filters.dateField]);
+
+                    if (isNaN(itemDate.getTime())) return false;
+
                     const fromDate = new Date(filters.dateFrom);
                     const toDate = new Date(filters.dateTo);
 
