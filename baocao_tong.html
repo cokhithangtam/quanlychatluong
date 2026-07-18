@@ -246,7 +246,7 @@
                 </div>
 
                 <!-- Summary Cards - CHIA THEO LOẠI SẢN LƯỢNG -->
-                <div class="grid grid-cols-1 md:grid-cols-7 gap-4 mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-8 gap-4 mb-6">
                     <div class="bg-blue-100 p-4 rounded-lg">
                         <h4 class="text-blue-800 font-semibold">Tap</h4>
                         <p class="text-2xl font-bold text-blue-600" id="totalTapSL">0</p>
@@ -276,6 +276,10 @@
                         <p class="text-2xl font-bold text-red-600" id="totalGoiSL">0</p>
                         <p class="text-sm text-red-700 mt-1">Tồn: <span id="totalGoiTon" class="font-medium">0</span>
                         </p>
+                    </div>
+                    <div class="bg-teal-100 p-4 rounded-lg border-2 border-teal-400">
+                        <h4 class="text-teal-800 font-semibold">Tổng tồn</h4>
+                        <p class="text-2xl font-bold text-teal-600" id="totalAllTon">0</p>
                     </div>
                     <div class="bg-indigo-100 p-4 rounded-lg">
                         <h4 class="text-indigo-800 font-semibold">TG thực tế</h4>
@@ -2520,6 +2524,10 @@
             document.getElementById('totalRuaTon').textContent = data.summary.totalRuaTon.toLocaleString();
             document.getElementById('totalXtraTon').textContent = data.summary.totalXtraTon.toLocaleString();
             document.getElementById('totalGoiTon').textContent = data.summary.totalGoiTon.toLocaleString();
+
+            // Tổng tồn (tổng tất cả tồn)
+            const totalAllTon = data.summary.totalTapTon + data.summary.totalViaTon + data.summary.totalRuaTon + data.summary.totalXtraTon + data.summary.totalGoiTon;
+            document.getElementById('totalAllTon').textContent = totalAllTon.toLocaleString();
 
             // Thời gian và hiệu suất (theo bộ lọc)
             document.getElementById('totalActualTimeSL').textContent = Math.round(data.summary.totalActualTime).toLocaleString() + ' phút';
