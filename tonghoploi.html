@@ -1091,11 +1091,64 @@
             document.getElementById('currentDate').textContent = dateStr;
         }
 
+        // Data fetching
+        async function fetchData() {
+            if (isLoading) return;
+
+            isLoading = true;
+            updateLoadingState(true);
+
+            try {
+                const fetchTable = async (tableName) => {
+                    const response = await fetch(`https://${region}.appsheet.com/api/v2/apps/${appId}/tables/${tableName}/Action`, {
+                        method: 'POST',
+                        headers: {
+                            'ApplicationAccessKey': accessKey,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            Action: 'Find',
+                            Properties: {},
+                            Selector: `Filter(${tableName}, true)`
+                        })
+                    });
+
+                    if (!response.ok) throw new Error(`Failed to fetch ${tableName} data`);
+                    return response.json();
+                };
+
+                // Execute network requests concurrently
+                const [dataTongHopLoi, dataXuLyBeMat] = await Promise.all([
+                    fetchTable('tong_hop_loi'),
+                    fetchTable('xu_ly_be_mat')
+                ]);
+
+                if (!Array.isArray(dataTongHopLoi) || !Array.isArray(dataXuLyBeMat)) {
+                    throw new Error('Invalid data');
+                }
+
+                processedData = processDataByOrder(dataTongHopLoi, dataXuLyBeMat);
+                filteredData = [...processedData];
+
+                populateFilters();
+                updateStats();
+                renderCurrentPage();
+
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Lỗi tải dữ liệu. Vui lòng thử lại.');
+            } finally {
+                isLoading = false;
+                updateLoadingState(false);
+            }
+        }
+
         // Data processing
-        function processDataByOrder(rawData) {
+        function processDataByOrder(dataTongHopLoi, dataXuLyBeMat) {
             const orderGroups = {};
 
-            rawData.forEach(item => {
+            // Step 1: Initialize and populate base orders from dataTongHopLoi
+            dataTongHopLoi.forEach(item => {
                 const orderKd = item.order_kd;
                 if (!orderKd) return;
 
@@ -1105,12 +1158,12 @@
                         ten_chi_tiet: item.ten_chi_tiet,
                         sll: parseInt(item.sll || 0),
                         tt: item.tt || '', // THÊM MỚI
-                        tinh_chat: item.tinh_chat || '', // THÊM MỚI
-                        thoi_han: item['Thời hạn'] || '',
+                        tinh_chat: item.tinh_chat || '',
                         bo_phan: item.noi_phat_sinh_loi || '',
                         may_sua: item.may_sua || '',
-                        hen_sua_xong: item.hen_sua_xong || '',
+                        hen_sua_xong: item.ghi_chu || '',
                         kiem_tra: item.ho_va_ten || '',
+                        thoi_han: item['Thời hạn'] || '',
                         ghi_chu: item['Thông tin'] || '',
                         errors: []
                     };
@@ -1128,6 +1181,19 @@
                         ma_loi: item.ma_loi,
                         timestamp: new Date(item.ngay_bao_loi + ' ' + (item.gio_bao_loi || '00:00')).getTime()
                     });
+                }
+            });
+
+            // Step 2: Attach the additional attribute from dataXuLyBeMat
+            dataXuLyBeMat.forEach(item => {
+                const orderKd = item.order_kd;
+
+                // Check if the order exists in orderGroups before assigning
+                if (orderKd && orderGroups[orderKd]) {
+                    // Only set it if a value exists in item
+                    if (item.xacnhan_kehoach_tu_xlbm) {
+                        orderGroups[orderKd].xacnhan_kehoach_tu_xlbm = item.xacnhan_kehoach_tu_xlbm;
+                    }
                 }
             });
 
@@ -1164,6 +1230,7 @@
                     hen_sua_xong: orderGroup.hen_sua_xong,
                     kiem_tra: orderGroup.kiem_tra,
                     ghi_chu: orderGroup.ghi_chu,
+                    xacnhan_kehoach_tu_xlbm: orderGroup.xacnhan_kehoach_tu_xlbm,
                     errors: sortedErrors,
                     total_sl_bao_loi: totalSLBaoLoi,
                     total_sl_tra: totalSLTra,
@@ -1174,48 +1241,6 @@
             });
 
             return processed.sort((a, b) => a.order_kd.localeCompare(b.order_kd));
-        }
-
-        // Data fetching
-        async function fetchData() {
-            if (isLoading) return;
-
-            isLoading = true;
-            updateLoadingState(true);
-
-            try {
-                const response = await fetch(`https://${region}.appsheet.com/api/v2/apps/${appId}/tables/tong_hop_loi/Action`, {
-                    method: 'POST',
-                    headers: {
-                        'ApplicationAccessKey': accessKey,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        Action: 'Find',
-                        Properties: {},
-                        Selector: "Filter(tong_hop_loi, true)"
-                    })
-                });
-
-                if (!response.ok) throw new Error('Failed to fetch');
-                const data = await response.json();
-                if (!Array.isArray(data)) throw new Error('Invalid data');
-
-                allData = data;
-                processedData = processDataByOrder(allData);
-                filteredData = [...processedData];
-
-                populateFilters();
-                updateStats();
-                renderCurrentPage();
-
-            } catch (error) {
-                console.error('Error:', error);
-                showError('Lỗi tải dữ liệu. Vui lòng thử lại.');
-            } finally {
-                isLoading = false;
-                updateLoadingState(false);
-            }
         }
 
         function updateLoadingState(loading) {
@@ -1681,8 +1706,8 @@
             <td>${item.ty_le_loi || ''}%</td>
             <td>${item.bo_phan || ''}</td>
             <td></td>
-            <td></td>
-            <td></td>
+            <td>${item.hen_sua_xong || ''}</td>
+            <td>${item.xacnhan_kehoach_tu_xlbm || ''}</td>
             <td title="${item.ghi_chu || ''}">${item.ghi_chu || ''}</td>
         `;
 
