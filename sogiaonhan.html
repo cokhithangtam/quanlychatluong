@@ -1735,15 +1735,19 @@
             // Chọn proxy phù hợp theo môi trường
             const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
             const isVercel = location.hostname.includes('vercel.app') || location.hostname.includes('.vercel.');
+            const isGitHubPages = location.hostname.includes('github.io');
+
+            const PROXY_ENDPOINT = isGitHubPages || isVercel
+                ? 'https://your-project-name.vercel.app/api/proxy' // Absolute URL for static hosts
+                : '/api/proxy';
+            
             let fetchUrl;
             if (isLocal) {
                 fetchUrl = `/proxy?url=${encodeURIComponent(drawingUrl)}`;
-            } else if (isVercel || location.pathname === '/sogiaonhan.html') {
-                // Vercel hoặc bất kỳ host nào có /api/proxy
-                fetchUrl = `/api/proxy?url=${encodeURIComponent(drawingUrl)}`;
             } else {
-                fetchUrl = `https://corsproxy.io/?${encodeURIComponent(drawingUrl)}`;
+                fetchUrl = `${PROXY_ENDPOINT}?url=${encodeURIComponent(drawingUrl)}`;
             }
+            
             const page = document.createElement('div');
             page.className = 'drawing-page';
             page.style.pageBreakAfter = 'always';
