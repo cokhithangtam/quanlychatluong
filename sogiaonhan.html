@@ -1736,16 +1736,23 @@
             const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
             const isVercel = location.hostname.includes('vercel.app') || location.hostname.includes('.vercel.');
             const isGitHubPages = location.hostname.includes('github.io');
-
-            const PROXY_ENDPOINT = isGitHubPages || isVercel
-                ? 'https://your-project-name.vercel.app/api/proxy' // Absolute URL for static hosts
-                : '/api/proxy';
+            
+            const VERCEL_PROXY = 'https://quanlychatluong-gamma.vercel.app/api/proxy';
+            const MY_CLOUDFLARE_PROXY = 'https://sogiaonhan-qlcl.hoxuanminh1164cktt.workers.dev';
             
             let fetchUrl;
             if (isLocal) {
                 fetchUrl = `/proxy?url=${encodeURIComponent(drawingUrl)}`;
+            } else if (isVercel || location.pathname === '/sogiaonhan.html' && !isGitHubPages) {
+                // Relative path works on Vercel deployment
+                fetchUrl = `/api/proxy?url=${encodeURIComponent(drawingUrl)}`;
+            } else if (isGitHubPages) {
+                // Route through Cloudflare Worker for GitHub Pages
+                fetchUrl = `${MY_CLOUDFLARE_PROXY}?url=${encodeURIComponent(drawingUrl)}`;
             } else {
-                fetchUrl = `${PROXY_ENDPOINT}?url=${encodeURIComponent(drawingUrl)}`;
+                // Unsupported environment fallback (no 3rd-party public proxy used)
+                console.error(`[Proxy Error] Unrecognized host: ${location.hostname}`);
+                throw new Error('Drawing proxy is not configured for this environment.');
             }
             
             const page = document.createElement('div');
