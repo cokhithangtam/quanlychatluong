@@ -7,7 +7,8 @@
     <title>Phiếu Theo Dõi Tình Trạng Sản Phẩm</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.datatables.net/1.10.25/css/dataTables.bootstrap5.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -292,8 +293,13 @@
         }
 
         @keyframes bgPulse {
-            0% { opacity: 0.7; }
-            100% { opacity: 1; }
+            0% {
+                opacity: 0.7;
+            }
+
+            100% {
+                opacity: 1;
+            }
         }
 
         /* === CONTAINER === */
@@ -366,7 +372,9 @@
         }
 
         @keyframes spinGlow {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         .error {
@@ -601,7 +609,7 @@
         #dataTable thead {
             position: sticky;
             top: 0;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             z-index: 100;
         }
 
@@ -730,9 +738,17 @@
         }
 
         @keyframes checkBounce {
-            0% { transform: scale(0.8); }
-            50% { transform: scale(1.15); }
-            100% { transform: scale(1); }
+            0% {
+                transform: scale(0.8);
+            }
+
+            50% {
+                transform: scale(1.15);
+            }
+
+            100% {
+                transform: scale(1);
+            }
         }
 
         #dataTable input[type="checkbox"]:checked::after,
@@ -1051,7 +1067,7 @@
         };
 
         // Glassmorphism header scroll shadow
-        window.addEventListener('scroll', function() {
+        window.addEventListener('scroll', function () {
             const header = document.querySelector('.fixed-header');
             if (header) {
                 if (window.scrollY > 10) {
@@ -1062,26 +1078,18 @@
             }
         });
 
-        // Constants for AppSheet connection
-        const appId = 'e1339939-5987-4d7a-8c73-436348abf6b7';
-        const accessKey = 'V2-WTcys-x7QFl-Z5SzF-zSe7D-qciuV-yaUHk-CDGEe-oSexL';
-        const region = 'www';
-
         // Hiển thị loading indicator
         document.getElementById('loadingIndicator').style.display = 'block';
 
         // Danh sách lưu trữ dữ liệu
-        let allOrderData = [];
+        let ALL_ORDER_DATA = [];
         let dataTable;
         const productCache = {}; // Cache cho dữ liệu sản phẩm
         const quang3DCache = {}; // Cache cho dữ liệu đo 3D quang
         const giaoHangPSXCache = {}; // Cache cho dữ liệu giao hàng PSX
-        let orderDataMap = new Map(); // Map để lookup nhanh theo order_kd
-        let printStatusMap = {}; // Trạng thái in: { order_kd: true/false }
-
-        // API endpoint cho trạng thái in (dùng Vercel API hoặc localStorage fallback)
-        const printStatusApiBase = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-            ? '' : '';
+        const thoiGianHoanThanhCache = {}; // Cache cho dữ liệu thời gian hoàn thành
+        let ORDER_DATA_MAP = new Map(); // Map để lookup nhanh theo order_kd
+        let PRINT_STATUS_MAP = {}; // Trạng thái in: { order_kd: true/false }
 
         // Tải trạng thái in từ API
         async function loadPrintStatus() {
@@ -1089,19 +1097,19 @@
                 const response = await fetch('/api/print-status');
                 if (response.ok) {
                     const data = await response.json();
-                    printStatusMap = data || {};
+                    PRINT_STATUS_MAP = data || {};
                 }
             } catch (e) {
                 // Fallback: đọc từ localStorage
                 try {
-                    printStatusMap = JSON.parse(localStorage.getItem('printStatus') || '{}');
-                } catch (err) { printStatusMap = {}; }
+                    PRINT_STATUS_MAP = JSON.parse(localStorage.getItem('printStatus') || '{}');
+                } catch (err) { PRINT_STATUS_MAP = {}; }
             }
         }
 
         // Đánh dấu đã in và cập nhật UI
         async function markAsPrinted(orderIds) {
-            orderIds.forEach(id => { printStatusMap[id] = true; });
+            orderIds.forEach(id => { PRINT_STATUS_MAP[id] = true; });
 
             // Cập nhật UI ngay lập tức
             orderIds.forEach(id => {
@@ -1121,7 +1129,7 @@
                 });
             } catch (e) {
                 // Fallback: lưu localStorage
-                localStorage.setItem('printStatus', JSON.stringify(printStatusMap));
+                localStorage.setItem('printStatus', JSON.stringify(PRINT_STATUS_MAP));
             }
         }
 
@@ -1134,9 +1142,9 @@
                     // So sánh và cập nhật UI cho các order thay đổi
                     for (const orderId in newData) {
                         if (orderId === '__initialized') continue;
-                        if (!printStatusMap[orderId] && newData[orderId]) {
+                        if (!PRINT_STATUS_MAP[orderId] && newData[orderId]) {
                             // Order mới được in từ PC khác → cập nhật UI
-                            printStatusMap[orderId] = true;
+                            PRINT_STATUS_MAP[orderId] = true;
                             const cells = document.querySelectorAll(`[data-order-status="${orderId}"]`);
                             cells.forEach(cell => {
                                 cell.textContent = 'Đã in';
@@ -1156,53 +1164,6 @@
         let productsReadyPromise = Promise.resolve();
         let quang3DReadyPromise = Promise.resolve();
         let psxReadyPromise = Promise.resolve();
-
-        // Fetch dữ liệu đơn hàng
-        async function fetchBatchedOrders() {
-            try {
-                const response = await fetch(`https://${region}.appsheet.com/api/v2/apps/${appId}/tables/so_giao_nhan/Action`, {
-                    method: 'POST',
-                    headers: {
-                        'ApplicationAccessKey': accessKey,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        "Action": "Find",
-                        "Properties": {
-                            "Locale": "vi-VN",
-                            "Timezone": "Asia/Ho_Chi_Minh"
-                        },
-                        "Rows": []
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const data = await response.json();
-                if (!Array.isArray(data)) {
-                    return [];
-                }
-
-                // Lọc dữ liệu hợp lệ (có order_kd và ten_chi_tiet)
-                const filteredData = data.filter(item => item.order_kd && item.ten_chi_tiet);
-
-                // Sắp xếp theo _RowNumber giảm dần (in-place, không tạo mảng mới)
-                filteredData.sort((a, b) => {
-                    if (a._RowNumber !== undefined && b._RowNumber !== undefined) {
-                        return b._RowNumber - a._RowNumber;
-                    }
-                    return 0;
-                });
-
-                console.log(`Đã tải ${filteredData.length} đơn hàng`);
-                return filteredData;
-            } catch (error) {
-                console.error('Lỗi khi lấy dữ liệu đơn hàng:', error);
-                throw error;
-            }
-        }
 
         // Function to populate table with data
         function populateTable(data) {
@@ -1271,7 +1232,7 @@
 
                 // Cột Ghi chú (Đã in / Chưa in)
                 const cellGhiChu = row.insertCell(7);
-                const isPrinted = printStatusMap[item.order_kd];
+                const isPrinted = PRINT_STATUS_MAP[item.order_kd];
                 cellGhiChu.textContent = isPrinted ? 'Đã in' : 'Chưa in';
                 cellGhiChu.style.textAlign = 'center';
                 cellGhiChu.style.fontWeight = '600';
@@ -1349,7 +1310,7 @@
                         data: null,
                         orderable: false,
                         render: function (data, type, row) {
-                            const isPrinted = printStatusMap[row.order_kd];
+                            const isPrinted = PRINT_STATUS_MAP[row.order_kd];
                             const text = isPrinted ? 'Đã in' : 'Chưa in';
                             const color = isPrinted ? '#2e7d32' : '#e65100';
                             return '<span data-order-status="' + row.order_kd + '" style="font-weight:600; color:' + color + '">' + text + '</span>';
@@ -1376,56 +1337,6 @@
 
             // Tự động tính lại margin-top cho table-content
             adjustTableContentMargin();
-        }
-
-        // Function to fetch product data from san_pham table
-        async function fetchProductData(tenChiTiet) {
-            // Kiểm tra cache trước
-            if (productCache[tenChiTiet]) {
-                return productCache[tenChiTiet];
-            }
-
-            try {
-                const response = await fetch(`https://${region}.appsheet.com/api/v2/apps/${appId}/tables/san_pham/Action`, {
-                    method: 'POST',
-                    headers: {
-                        'ApplicationAccessKey': accessKey,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        Action: 'Find',
-                        Properties: {},
-                        Selector: `[ten_chi_tiet] = "${tenChiTiet}"`
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const data = await response.json();
-                if (!Array.isArray(data) || data.length === 0) {
-                    console.warn('Không tìm thấy dữ liệu sản phẩm cho tên chi tiết:', tenChiTiet);
-                    productCache[tenChiTiet] = null; // Cache kết quả null
-                    return null; // Trả về null nếu không tìm thấy
-                }
-
-                // Tìm chính xác bản ghi với ten_chi_tiet
-                const exactMatch = data.find(item => item.ten_chi_tiet === tenChiTiet);
-                if (!exactMatch) {
-                    console.warn('Không tìm thấy sản phẩm khớp chính xác với tên chi tiết:', tenChiTiet);
-                    const result = data[0]; // Trả về bản ghi đầu tiên nếu không có khớp chính xác
-                    productCache[tenChiTiet] = result; // Cache kết quả
-                    return result;
-                }
-
-                // Cache kết quả tìm được
-                productCache[tenChiTiet] = exactMatch;
-                return exactMatch;
-            } catch (error) {
-                console.error('Lỗi khi lấy dữ liệu sản phẩm:', error);
-                return null; // Trả về null nếu có lỗi
-            }
         }
 
         // Function to create a form with data
@@ -1696,9 +1607,75 @@
             formElement.querySelector('#note8').textContent = note8;
 
             // Note 9 - Kiểm tra chương trình đo máy 3D quang
+            //      Nếu chi tiết có chương trình đo máy 3D quang, hiển thị thông báo
             let note9 = '';
-            if (quang3DCache[ten_chi_tiet]) {
-                note9 = 'KTRA: Chi tiết đã có chương trình đo máy 3D quang => XN thực hiện:';
+
+            // Lưu ý, nếu tồn tại thì kết quả trả về là một dict với key là ten_chi_tiet, value là một mảng các dòng dữ liệu đo 3D quang
+            const ten_chi_tiet_3D_item = quang3DCache[ten_chi_tiet];
+            const ten_chi_tiet_thoigian_hoanthanh_item = thoiGianHoanThanhCache[ten_chi_tiet];
+
+            console.log("Debug: ten_chi_tiet_3D_item for", ten_chi_tiet, ":", ten_chi_tiet_3D_item);
+            console.log("Debug: ten_chi_tiet_thoigian_hoanthanh_item for", ten_chi_tiet, ":", ten_chi_tiet_thoigian_hoanthanh_item);
+
+            if (ten_chi_tiet_3D_item) {
+                const defaultNote9 = 'KTRA: Chi tiết đo máy 3D quang => XN thực hiện:';
+                if (!ten_chi_tiet_thoigian_hoanthanh_item) {
+                    console.log("Debug: No thoiGianHoanThanh data for", ten_chi_tiet, ", using default note9.");
+                    note9 = defaultNote9;
+                } else {
+                    // Tính tổng thời gian đo cho IKTBV
+                    const tongThoiGian_IKTBV = ten_chi_tiet_thoigian_hoanthanh_item.IKTBV.reduce((sum, row) => {
+                        return sum + (parseFloat(row.Thoi_Gian) || 0);
+                    }, 0);
+
+                    // Tính tổng thời gian đo cho IKTHD
+                    const tongThoiGian_IKTHD = ten_chi_tiet_thoigian_hoanthanh_item.IKTHD.reduce((sum, row) => {
+                        return sum + (parseFloat(row.Thoi_Gian) || 0);
+                    }, 0);
+
+                    console.log("Debug: tongThoiGian_IKTBV for", ten_chi_tiet, ":", tongThoiGian_IKTBV);
+                    console.log("Debug: tongThoiGian_IKTHD for", ten_chi_tiet, ":", tongThoiGian_IKTHD);
+                    if (tongThoiGian_IKTBV === 0 && tongThoiGian_IKTHD === 0) {
+                        note9 = defaultNote9;
+                        console.log("Debug: No time data for IKTBV and IKTHD for", ten_chi_tiet, ", using default note9.");
+                    } else {
+                        // Nếu có dữ liệu thời gian đo, tính toán đề xuất đo tay hay đo máy
+                        // Tính tổng thời gian đo cho IKMQBV
+                        const tongThoiGian_IKMQBV = ten_chi_tiet_3D_item.BV.reduce((sum, row) => {
+                            return sum + (parseFloat(row.thoi_gian_do) || 0);
+                        }, 0);
+
+                        // Tính tổng thời gian đo cho IKMQHD
+                        const tongThoiGian_IKMQHD = ten_chi_tiet_3D_item.HD.reduce((sum, row) => {
+                            return sum + (parseFloat(row.thoi_gian_do) || 0);
+                        }, 0);
+
+                        // Tính tổng thời gian đo cho IKTQHD
+                        const tongThoiGian_IKTQHD = ten_chi_tiet_thoigian_hoanthanh_item.IKTQHD.reduce((sum, row) => {
+                            return sum + (parseFloat(row.Thoi_Gian) || 0);
+                        }, 0);
+
+                        // Tính tổng thời gian đo cho IKTQBV
+                        const tongThoiGian_IKTQBV = ten_chi_tiet_thoigian_hoanthanh_item.IKTQBV.reduce((sum, row) => {
+                            return sum + (parseFloat(row.Thoi_Gian) || 0);
+                        }, 0);
+
+                        const sll = parseInt(orderData.sll) || 0;
+                        if (sll > 0) {
+                            const tongthoigian_chidotay = tongThoiGian_IKTBV + tongThoiGian_IKTHD * (sll - 1);
+                            const tongthoigian_domayquang = tongThoiGian_IKMQBV + tongThoiGian_IKTQBV + ((tongThoiGian_IKMQHD + tongThoiGian_IKTQHD) * (sll - 1));
+
+                            const danh_gia_T_text = tongthoigian_chidotay > tongthoigian_domayquang
+                                ? 'T_tay > T_máy'
+                                : (tongthoigian_chidotay < tongthoigian_domayquang
+                                    ? 'T_tay < T_máy'
+                                    : 'T_tay = T_máy');
+
+                            const de_xuat_do = tongthoigian_chidotay > tongthoigian_domayquang ? 'Đo tay' : 'Đo máy';
+                            note9 = 'KTRA: Có 3D Quang: ' + danh_gia_T_text + ' ⇒ chuyển ' + de_xuat_do + ' => XN thực hiện:';
+                        }
+                    }
+                }
             }
             formElement.querySelector('#note9').textContent = note9;
 
@@ -1733,20 +1710,24 @@
 
             const drawingUrl = `https://www.appsheet.com/template/gettablefileurl?appName=Quảnlýchấtlượng-648353741&tableName=san_pham&fileName=${encodeURIComponent(fileBanVe)}`;
             // Chọn proxy phù hợp theo môi trường
-            const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+            const isLocal =
+                location.protocol === 'file:' ||
+                location.hostname === 'localhost' ||
+                location.hostname === '127.0.0.1';
             const isVercel = location.hostname.includes('vercel.app') || location.hostname.includes('.vercel.');
             const isGitHubPages = location.hostname.includes('github.io');
-            
+            const isGoogleAppsScript = location.hostname.includes('google.com') || location.hostname.includes('googleusercontent.com');
+
             const VERCEL_PROXY = 'https://quanlychatluong-gamma.vercel.app/api/proxy';
             const MY_CLOUDFLARE_PROXY = 'https://sogiaonhan-qlcl.hoxuanminh1164cktt.workers.dev';
-            
+
             let fetchUrl;
             if (isLocal) {
                 fetchUrl = `/proxy?url=${encodeURIComponent(drawingUrl)}`;
             } else if (isVercel || location.pathname === '/sogiaonhan.html' && !isGitHubPages) {
                 // Relative path works on Vercel deployment
                 fetchUrl = `/api/proxy?url=${encodeURIComponent(drawingUrl)}`;
-            } else if (isGitHubPages) {
+            } else if (isGitHubPages || isGoogleAppsScript) {
                 // Route through Cloudflare Worker for GitHub Pages
                 fetchUrl = `${MY_CLOUDFLARE_PROXY}?url=${encodeURIComponent(drawingUrl)}`;
             } else {
@@ -1754,7 +1735,6 @@
                 console.error(`[Proxy Error] Unrecognized host: ${location.hostname}`);
                 throw new Error('Drawing proxy is not configured for this environment.');
             }
-            
             const page = document.createElement('div');
             page.className = 'drawing-page';
             page.style.pageBreakAfter = 'always';
@@ -1767,21 +1747,21 @@
                     const response = await fetch(fetchUrl);
                     if (!response.ok) throw new Error('HTTP ' + response.status);
                     const arrayBuffer = await response.arrayBuffer();
-                    
+
                     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
                     const pdfPage = await pdf.getPage(1);
-                    
+
                     // Scale 4 = 288 DPI (nhanh hơn 2x so với scale 6, chất lượng vẫn tốt)
                     const scale = 4;
                     const viewport = pdfPage.getViewport({ scale });
-                    
+
                     const canvas = document.createElement('canvas');
                     canvas.width = viewport.width;
                     canvas.height = viewport.height;
                     const ctx = canvas.getContext('2d');
-                    
+
                     await pdfPage.render({ canvasContext: ctx, viewport }).promise;
-                    
+
                     // Xoay 90° nếu dọc
                     let finalCanvas = canvas;
                     if (canvas.height > canvas.width) {
@@ -1794,11 +1774,11 @@
                         rCtx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
                         finalCanvas = rc;
                     }
-                    
+
                     // JPEG nhanh hơn PNG 5-10 lần, chất lượng 95%
                     const dataUrl = finalCanvas.toDataURL('image/jpeg', 0.95);
                     renderedDrawingCache[fileBanVe] = dataUrl;
-                    
+
                     const img = document.createElement('img');
                     img.src = dataUrl;
                     img.style.cssText = 'width:100%; height:100%; object-fit:contain;';
@@ -1837,7 +1817,7 @@
             const printArea = document.getElementById('printArea');
             printArea.innerHTML = '';
             try {
-                const orderData = orderDataMap.get(orderId) || allOrderData.find(item => item.order_kd === orderId);
+                const orderData = ORDER_DATA_MAP.get(orderId) || ALL_ORDER_DATA.find(item => item.order_kd === orderId);
                 if (!orderData) {
                     alert('Không tìm thấy dữ liệu cho order: ' + orderId);
                     loadingEl.style.display = 'none';
@@ -1854,10 +1834,10 @@
                 }
 
                 // Thêm trang bản vẽ (mặt sau)
-                if (productData && productData.file_ban_ve) {
-                    const drawingPage = await createDrawingPage(productData.file_ban_ve);
-                    printArea.appendChild(drawingPage);
-                }
+                // if (productData && productData.file_ban_ve) {
+                //     const drawingPage = await createDrawingPage(productData.file_ban_ve);
+                //     printArea.appendChild(drawingPage);
+                // }
 
                 loadingEl.style.display = 'none';
                 // In ngay vì PDF đã được render xong
@@ -1872,92 +1852,6 @@
                 loadingEl.style.display = 'none';
                 alert('Lỗi in nhanh: ' + error.message);
                 printArea.innerHTML = '';
-            }
-        }
-
-        // Hàm kiểm tra ten_chi_tiet có trong bảng thoi_gian_do_ga_lap_3d_quang không
-        async function check3DQuang(tenChiTiet) {
-            if (quang3DCache.hasOwnProperty(tenChiTiet)) {
-                return quang3DCache[tenChiTiet];
-            }
-            try {
-                const response = await fetch(`https://${region}.appsheet.com/api/v2/apps/${appId}/tables/thoi_gian_do_ga_lap_3d_quang/Action`, {
-                    method: 'POST',
-                    headers: {
-                        'ApplicationAccessKey': accessKey,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        Action: 'Find',
-                        Properties: {},
-                        Selector: `[ten_chi_tiet] = "${tenChiTiet}"`
-                    })
-                });
-                if (!response.ok) {
-                    quang3DCache[tenChiTiet] = null;
-                    return null;
-                }
-                const data = await response.json();
-                if (!Array.isArray(data) || data.length === 0) {
-                    quang3DCache[tenChiTiet] = null;
-                    return null;
-                }
-                // Kiểm tra khớp chính xác ten_chi_tiet (API có thể trả về kết quả không chính xác)
-                const exactMatch = data.find(item => item.ten_chi_tiet === tenChiTiet);
-                if (!exactMatch) {
-                    console.warn('3D Quang - Không khớp chính xác:', tenChiTiet,
-                        '| API trả về:', data.map(d => d.ten_chi_tiet));
-                    quang3DCache[tenChiTiet] = null;
-                    return null;
-                }
-                quang3DCache[tenChiTiet] = exactMatch;
-                return exactMatch;
-            } catch (error) {
-                console.error('3D Quang - Lỗi:', tenChiTiet, error);
-                quang3DCache[tenChiTiet] = null;
-                return null;
-            }
-        }
-
-        // Hàm lấy dữ liệu giao hàng PSX theo order_kd
-        async function fetchGiaoHangPSX(orderKd) {
-            if (giaoHangPSXCache.hasOwnProperty(orderKd)) {
-                return giaoHangPSXCache[orderKd];
-            }
-            try {
-                const response = await fetch(`https://${region}.appsheet.com/api/v2/apps/${appId}/tables/Giao_Hang_PSX/Action`, {
-                    method: 'POST',
-                    headers: {
-                        'ApplicationAccessKey': accessKey,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        Action: 'Find',
-                        Properties: {},
-                        Selector: `[order_kd] = "${orderKd}"`
-                    })
-                });
-                if (!response.ok) {
-                    giaoHangPSXCache[orderKd] = null;
-                    return null;
-                }
-                const data = await response.json();
-                if (!Array.isArray(data) || data.length === 0) {
-                    giaoHangPSXCache[orderKd] = null;
-                    return null;
-                }
-                // Lọc các bản ghi có dữ liệu xác nhận
-                const confirmed = data.filter(item =>
-                    item.order_kd === orderKd &&
-                    item.sl_da_xac_nhan_khi_giao_hang &&
-                    item.noi_dung_da_xac_nhan_khi_giao_hang
-                );
-                giaoHangPSXCache[orderKd] = confirmed.length > 0 ? confirmed : null;
-                return giaoHangPSXCache[orderKd];
-            } catch (error) {
-                console.error('Giao Hang PSX - Lỗi:', orderKd, error);
-                giaoHangPSXCache[orderKd] = null;
-                return null;
             }
         }
 
@@ -1987,9 +1881,9 @@
                 // Bước 1: Chuẩn bị dữ liệu và tìm các PDF cần tải
                 const orderItems = [];
                 const pdfFilesToLoad = new Set();
-                
+
                 for (const orderId of selectedOrders) {
-                    const orderData = orderDataMap.get(orderId) || allOrderData.find(item => item.order_kd === orderId);
+                    const orderData = ORDER_DATA_MAP.get(orderId) || ALL_ORDER_DATA.find(item => item.order_kd === orderId);
                     if (!orderData) continue;
                     const productData = productCache[orderData.ten_chi_tiet] || null;
                     orderItems.push({ orderData, productData });
@@ -2069,98 +1963,101 @@
             }
         }
 
-        // Hàm lấy tất cả sản phẩm từ bảng san_pham
-        async function fetchAllProducts() {
-            try {
-                const response = await fetch(`https://${region}.appsheet.com/api/v2/apps/${appId}/tables/san_pham/Action`, {
-                    method: 'POST',
-                    headers: {
-                        'ApplicationAccessKey': accessKey,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        "Action": "Find",
-                        "Properties": {
-                            "Locale": "vi-VN",
-                            "Timezone": "Asia/Ho_Chi_Minh"
-                        },
-                        "Rows": []
-                    })
-                });
+        // ******************************************************************** //
+        //                                                                      //
+        //                          FETCH SECTION                               //
+        //                                                                      //
+        // ******************************************************************** //
 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzkXGgwt0wfLl2wKSs8GfMPh6CBIcp62AfpWY_HzbDBDBvHOnVZCsLGH2cuRysJukJm/exec';
+
+        function fetchDirectFromSheet(tableName, hasFilter = '') {
+            return fetch(`${APPS_SCRIPT_URL}?sheet=${encodeURIComponent(tableName)}&filter=${encodeURIComponent(hasFilter)}`)
+                .then(res => res.json())
+                .catch(err => {
+                    console.error(`Lỗi tải bảng ${tableName}:`, err);
+                    return [];
+                });
+        }
+
+        function fetchFromAppSheet(tableName, actionName = 'Find', hasFilter = '') {
+            // Constants for AppSheet connection
+            const appId = 'e1339939-5987-4d7a-8c73-436348abf6b7';
+            const accessKey = 'V2-WTcys-x7QFl-Z5SzF-zSe7D-qciuV-yaUHk-CDGEe-oSexL';
+            const region = 'www';
+
+            let payload = {
+                "Action": actionName,
+                "Properties": {
+                    "Locale": "vi-VN",
+                    "Timezone": "Asia/Ho_Chi_Minh",
+                },
+                "Rows": []
+            };
+            if (hasFilter !== '') {
+                if (hasFilter === 'thoigian_hoanthanh_IKTQBV_IKTQHD') {
+
+                    // Lưu ý, việc này phụ thuộc hoàn toàn vào cấu trúc hiện tại xây trên AppSheet và Google Sheet.
+                    // Nếu có thay đổi, cần kiểm tra lại. Cấu trúc hiện tại là bảng thoi_gian_hoan_thanh có cột ma_cv, và các giá trị cần lọc là IKTQBV, IKTQHD, IKTBV, IKTQHD.
+                    payload.Properties['Selector'] = 'FILTER("thoi_gian_hoan_thanh", IN([ma_cv], LIST("IKTQBV", "IKTQHD", "IKTBV", "IKTHD")))';
+                }
+            }
+
+            return fetch(`https://${region}.appsheet.com/api/v2/apps/${appId}/tables/${tableName}/Action`, {
+                method: 'POST',
+                headers: {
+                    'ApplicationAccessKey': accessKey,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => Array.isArray(data) ? data : [])
+                .catch(error => {
+                    console.error(`Lỗi khi lấy dữ liệu từ bảng ${tableName}:`, error);
+                    return [];
+                });
+        }
+
+        // Fetch dữ liệu đơn hàng
+        async function fetchBatchedOrders() {
+            try {
+                const response = await fetchDirectFromSheet('so_giao_nhan');
+
+                if (!Array.isArray(response)) {
+                    return [];
                 }
 
-                const data = await response.json();
-                return Array.isArray(data) ? data : [];
+                // Lọc dữ liệu hợp lệ (có order_kd và ten_chi_tiet)
+                const filteredData = response.filter(item => item.order_kd && item.ten_chi_tiet);
+
+                // Sắp xếp theo _RowNumber giảm dần (in-place, không tạo mảng mới)
+                filteredData.sort((a, b) => {
+                    if (a._RowNumber !== undefined && b._RowNumber !== undefined) {
+                        return b._RowNumber - a._RowNumber;
+                    }
+                    return 0;
+                });
+
+                return filteredData;
             } catch (error) {
-                console.error('Lỗi khi lấy dữ liệu sản phẩm:', error);
-                return [];
+                console.error('Lỗi khi lấy dữ liệu đơn hàng:', error);
+                throw error;
             }
         }
 
-        // Hàm lấy tất cả dữ liệu 3D quang
-        async function fetchAll3DQuang() {
-            try {
-                const response = await fetch(`https://${region}.appsheet.com/api/v2/apps/${appId}/tables/thoi_gian_do_ga_lap_3d_quang/Action`, {
-                    method: 'POST',
-                    headers: {
-                        'ApplicationAccessKey': accessKey,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        "Action": "Find",
-                        "Properties": {
-                            "Locale": "vi-VN",
-                            "Timezone": "Asia/Ho_Chi_Minh"
-                        },
-                        "Rows": []
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const data = await response.json();
-                return Array.isArray(data) ? data : [];
-            } catch (error) {
-                console.error('Lỗi khi lấy dữ liệu 3D quang:', error);
-                return [];
-            }
-        }
-
-        // Hàm lấy tất cả dữ liệu giao hàng PSX
-        async function fetchAllGiaoHangPSX() {
-            try {
-                const response = await fetch(`https://${region}.appsheet.com/api/v2/apps/${appId}/tables/Giao_Hang_PSX/Action`, {
-                    method: 'POST',
-                    headers: {
-                        'ApplicationAccessKey': accessKey,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        "Action": "Find",
-                        "Properties": {
-                            "Locale": "vi-VN",
-                            "Timezone": "Asia/Ho_Chi_Minh"
-                        },
-                        "Rows": []
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const data = await response.json();
-                return Array.isArray(data) ? data : [];
-            } catch (error) {
-                console.error('Lỗi khi lấy dữ liệu giao hàng PSX:', error);
-                return [];
-            }
-        }
+        // ******************************************************************** //
+        // ******************************************************************** //
+        //                                                                      //
+        //                          MAIN RUN PART                               //
+        //                                                                      //
+        // ******************************************************************** //
+        // ******************************************************************** //
 
         // Hàm khởi tạo trang - hiển thị bảng ngay khi có orders
         async function initPage() {
@@ -2169,35 +2066,32 @@
                 loadingEl.style.display = 'block';
                 loadingEl.textContent = 'Đang tải dữ liệu...';
 
-                // Bắt đầu TẤT CẢ fetch cùng lúc (không chờ nhau)
-                const ordersPromise = fetchBatchedOrders();
-                const productsPromise = fetchAllProducts();
-                const quang3DPromise = fetchAll3DQuang();
-                const psxPromise = fetchAllGiaoHangPSX();
-                const printStatusPromise = loadPrintStatus();
-
-                // Chờ orders + print status — hiển thị bảng NGAY khi có
-                const orderData = await ordersPromise;
-                await printStatusPromise;
-                allOrderData = orderData;
+                const [ordersData, productData, quang3DData, giaoHangPSXData, thoiGianHoanThanhData, printStatusPromise] = await Promise.all([
+                    fetchBatchedOrders(),
+                    fetchDirectFromSheet('san_pham'),
+                    fetchDirectFromSheet('thoi_gian_do_ga_lap_3d_quang'),
+                    fetchDirectFromSheet('Giao_Hang_PSX'),
+                    fetchDirectFromSheet('thoi_gian_hoan_thanh', 'thoigian_hoanthanh_IKTQBV_IKTQHD'),
+                    loadPrintStatus()
+                ]);
 
                 // Lần đầu: nếu chưa khởi tạo, đánh dấu TẤT CẢ dữ liệu hiện tại là "Đã in"
-                if (!printStatusMap['__initialized']) {
-                    const allIds = orderData.map(item => item.order_kd).filter(Boolean);
-                    allIds.forEach(id => { printStatusMap[id] = true; });
-                    printStatusMap['__initialized'] = true;
+                if (!PRINT_STATUS_MAP['__initialized']) {
+                    const allIds = ordersData.map(item => item.order_kd).filter(Boolean);
+                    allIds.forEach(id => { PRINT_STATUS_MAP[id] = true; });
+                    PRINT_STATUS_MAP['__initialized'] = true;
                     // Lưu lên server
                     markAsPrinted([...allIds, '__initialized']);
                 }
 
                 // Tạo Map để lookup nhanh
-                orderDataMap = new Map();
-                for (let i = 0; i < orderData.length; i++) {
-                    orderDataMap.set(orderData[i].order_kd, orderData[i]);
+                ORDER_DATA_MAP = new Map();
+                for (let i = 0; i < ordersData.length; i++) {
+                    ORDER_DATA_MAP.set(ordersData[i].order_kd, ordersData[i]);
                 }
 
                 // Hiển thị bảng NGAY — không chờ products, 3D, PSX
-                populateTable(allOrderData);
+                populateTable(ordersData);
                 loadingEl.style.display = 'none';
 
                 // Thiết lập sự kiện
@@ -2222,46 +2116,81 @@
                     }
                 });
 
-                console.log(`Bảng hiển thị: ${orderData.length} orders`);
-
                 // Các dữ liệu còn lại tải ngầm — khi nào xong thì cập nhật cache
-                productsReadyPromise = productsPromise.then(productData => {
-                    for (let i = 0; i < productData.length; i++) {
-                        if (productData[i].ten_chi_tiet) {
-                            productCache[productData[i].ten_chi_tiet] = productData[i];
-                        }
+                for (let i = 0; i < productData.length; i++) {
+                    if (productData[i].ten_chi_tiet) {
+                        productCache[productData[i].ten_chi_tiet] = productData[i];
                     }
-                    console.log(`Products cached: ${productData.length}`);
-                    // Cập nhật lại bảng để hiện link "In bản vẽ"
-                    if (dataTable) {
-                        dataTable.rows().invalidate().draw(false);
-                    }
-                }).catch(err => console.warn('Lỗi tải products:', err));
+                }
+                // Cập nhật lại bảng để hiện link "In bản vẽ"
+                if (dataTable) {
+                    dataTable.rows().invalidate().draw(false);
+                }
 
-                quang3DReadyPromise = quang3DPromise.then(quang3DData => {
-                    for (let i = 0; i < quang3DData.length; i++) {
-                        if (quang3DData[i].ten_chi_tiet) {
-                            quang3DCache[quang3DData[i].ten_chi_tiet] = quang3DData[i];
-                        }
-                    }
-                    console.log(`3D quang cached: ${quang3DData.length}`);
-                }).catch(err => console.warn('Lỗi tải 3D quang:', err));
+                for (let i = 0; i < quang3DData.length; i++) {
+                    const item = quang3DData[i];
+                    const key = item.ten_chi_tiet;
+                    const theLoai = item.the_loai; // Cột J: BV hoặc HD
 
-                psxReadyPromise = psxPromise.then(giaoHangPSXData => {
-                    for (let i = 0; i < giaoHangPSXData.length; i++) {
-                        const item = giaoHangPSXData[i];
-                        if (item.order_kd && item.sl_da_xac_nhan_khi_giao_hang && item.noi_dung_da_xac_nhan_khi_giao_hang) {
-                            if (!giaoHangPSXCache[item.order_kd]) {
-                                giaoHangPSXCache[item.order_kd] = [];
-                            }
-                            giaoHangPSXCache[item.order_kd].push(item);
+                    if (key) {
+                        // Nếu chưa có chi tiết này, khởi tạo đối tượng 2 cấp
+                        if (!quang3DCache[key]) {
+                            quang3DCache[key] = {
+                                BV: [],
+                                HD: []
+                            };
+                        }
+
+                        // Đẩy dữ liệu vào mảng tương ứng (BV hoặc HD)
+                        if (theLoai === 'BV') {
+                            quang3DCache[key].BV.push(item);
+                        } else if (theLoai === 'HD') {
+                            quang3DCache[key].HD.push(item);
                         }
                     }
-                    console.log(`PSX cached: ${giaoHangPSXData.length}`);
-                }).catch(err => console.warn('Lỗi tải PSX:', err));
+                }
+
+                for (let i = 0; i < giaoHangPSXData.length; i++) {
+                    const item = giaoHangPSXData[i];
+                    if (item.order_kd && item.sl_da_xac_nhan_khi_giao_hang && item.noi_dung_da_xac_nhan_khi_giao_hang) {
+                        if (!giaoHangPSXCache[item.order_kd]) {
+                            giaoHangPSXCache[item.order_kd] = [];
+                        }
+                        giaoHangPSXCache[item.order_kd].push(item);
+                    }
+                }
+
+                for (let i = 0; i < thoiGianHoanThanhData.length; i++) {
+                    const item = thoiGianHoanThanhData[i];
+                    const key = item.ten_chi_tiet;
+                    const ma_cv = item.ma_cv; // Cột ma_cv: IKTQBV hoặc IKTQHD
+
+                    if (key) {
+                        // Nếu chưa có chi tiết này, khởi tạo đối tượng 2 cấp
+                        if (!thoiGianHoanThanhCache[key]) {
+                            thoiGianHoanThanhCache[key] = {
+                                IKTBV: [],
+                                IKTHD: [],
+                                IKTQBV: [],
+                                IKTQHD: []
+                            };
+                        }
+
+                        // Đẩy dữ liệu vào mảng tương ứng (BV hoặc HD)
+                        if (ma_cv === 'IKTBV') {
+                            thoiGianHoanThanhCache[key].IKTBV.push(item);
+                        } else if (ma_cv === 'IKTHD') {
+                            thoiGianHoanThanhCache[key].IKTHD.push(item);
+                        } else if (ma_cv === 'IKTQBV') {
+                            thoiGianHoanThanhCache[key].IKTQBV.push(item);
+                        } else if (ma_cv === 'IKTQHD') {
+                            thoiGianHoanThanhCache[key].IKTQHD.push(item);
+                        }
+                    }
+                }
 
             } catch (error) {
-                console.error('Lỗi khởi tạo trang:', error);
+                console.error('Lỗi khởi tạo trang - [initPage]:', error);
                 loadingEl.style.display = 'none';
                 document.getElementById('errorMessage').style.display = 'block';
                 document.getElementById('errorMessage').textContent = 'Đã xảy ra lỗi: ' + error.message;
