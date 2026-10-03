@@ -1826,10 +1826,10 @@
                 }
 
                 // Thêm trang bản vẽ (mặt sau)
-                // if (productData && productData.file_ban_ve) {
-                //     const drawingPage = await createDrawingPage(productData.file_ban_ve);
-                //     printArea.appendChild(drawingPage);
-                // }
+                if (productData && productData.file_ban_ve) {
+                    const drawingPage = await createDrawingPage(productData.file_ban_ve);
+                    printArea.appendChild(drawingPage);
+                }
 
                 loadingEl.style.display = 'none';
                 // In ngay vì PDF đã được render xong
