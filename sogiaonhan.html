@@ -1613,14 +1613,9 @@
             // Lưu ý, nếu tồn tại thì kết quả trả về là một dict với key là ten_chi_tiet, value là một mảng các dòng dữ liệu đo 3D quang
             const ten_chi_tiet_3D_item = quang3DCache[ten_chi_tiet];
             const ten_chi_tiet_thoigian_hoanthanh_item = thoiGianHoanThanhCache[ten_chi_tiet];
-
-            console.log("Debug: ten_chi_tiet_3D_item for", ten_chi_tiet, ":", ten_chi_tiet_3D_item);
-            console.log("Debug: ten_chi_tiet_thoigian_hoanthanh_item for", ten_chi_tiet, ":", ten_chi_tiet_thoigian_hoanthanh_item);
-
             if (ten_chi_tiet_3D_item) {
                 const defaultNote9 = 'KTRA: Chi tiết đo máy 3D quang => XN thực hiện:';
                 if (!ten_chi_tiet_thoigian_hoanthanh_item) {
-                    console.log("Debug: No thoiGianHoanThanh data for", ten_chi_tiet, ", using default note9.");
                     note9 = defaultNote9;
                 } else {
                     // Tính tổng thời gian đo cho IKTBV
@@ -1633,11 +1628,8 @@
                         return sum + (parseFloat(row.Thoi_Gian) || 0);
                     }, 0);
 
-                    console.log("Debug: tongThoiGian_IKTBV for", ten_chi_tiet, ":", tongThoiGian_IKTBV);
-                    console.log("Debug: tongThoiGian_IKTHD for", ten_chi_tiet, ":", tongThoiGian_IKTHD);
                     if (tongThoiGian_IKTBV === 0 && tongThoiGian_IKTHD === 0) {
                         note9 = defaultNote9;
-                        console.log("Debug: No time data for IKTBV and IKTHD for", ten_chi_tiet, ", using default note9.");
                     } else {
                         // Nếu có dữ liệu thời gian đo, tính toán đề xuất đo tay hay đo máy
                         // Tính tổng thời gian đo cho IKMQBV
