@@ -2028,15 +2028,7 @@
                 // Lọc dữ liệu hợp lệ (có order_kd và ten_chi_tiet)
                 const filteredData = response.filter(item => item.order_kd && item.ten_chi_tiet);
 
-                // Sắp xếp theo _RowNumber giảm dần (in-place, không tạo mảng mới)
-                filteredData.sort((a, b) => {
-                    if (a._RowNumber !== undefined && b._RowNumber !== undefined) {
-                        return b._RowNumber - a._RowNumber;
-                    }
-                    return 0;
-                });
-
-                return filteredData;
+                return filteredData.reverse();
             } catch (error) {
                 console.error('Lỗi khi lấy dữ liệu đơn hàng:', error);
                 throw error;
