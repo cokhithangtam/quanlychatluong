@@ -1428,7 +1428,7 @@
                    <div class="info-label">Ngày nhận:</div>
                    <div class="info-value">${formatDate(orderData.ngay_nhan) || ''}</div>
                    <div class="info-label">Giờ nhận:</div>
-                   <div class="info-value">${orderData.gio_nhan || ''}</div>
+                   <div class="info-value">${formatTime(orderData.gio_nhan) || ''}</div>
                    <div class="info-label">Code:</div>
                    <div class="info-value">${orderData.code || ''}</div>
                    <div class="info-label">Người nhận:</div>
@@ -1957,6 +1957,20 @@
             }
         }
 
+        function formatTime(dateString) {
+          if (!dateString) return '';
+          
+          const date = new Date(dateString);
+          // Kiểm tra nếu date không hợp lệ
+          if (isNaN(date.getTime())) return dateString; 
+        
+          // Lấy giờ và phút theo giờ địa phương
+          const hours = String(date.getHours()).padStart(2, '0');
+          const minutes = String(date.getMinutes()).padStart(2, '0');
+          
+          return `${hours}:${minutes}`; // Trả về "05:45"
+        }
+        
         // ******************************************************************** //
         //                                                                      //
         //                          FETCH SECTION                               //
