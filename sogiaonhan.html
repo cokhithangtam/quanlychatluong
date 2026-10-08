@@ -1822,6 +1822,7 @@
                 printArea.appendChild(formElement);
                 const qrContainer = formElement.querySelector('.qr-code');
                 if (qrContainer) {
+                    qrContainer.innerHTML = '';
                     new QRCode(qrContainer, { text: orderData.order_kd, width: 150, height: 150, correctLevel: QRCode.CorrectLevel.H });
                 }
 
@@ -1907,6 +1908,7 @@
 
                     const qrContainer = formElement.querySelector('.qr-code');
                     if (qrContainer) {
+                        qrContainer.innerHTML = '';
                         new QRCode(qrContainer, {
                             text: orderData.order_kd,
                             width: 150,
