@@ -1979,13 +1979,19 @@
 
         const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzkXGgwt0wfLl2wKSs8GfMPh6CBIcp62AfpWY_HzbDBDBvHOnVZCsLGH2cuRysJukJm/exec';
 
-        function fetchDirectFromSheet(tableName, hasFilter = '') {
-            return fetch(`${APPS_SCRIPT_URL}?sheet=${encodeURIComponent(tableName)}&filter=${encodeURIComponent(hasFilter)}`)
-                .then(res => res.json())
-                .catch(err => {
-                    console.error(`Lỗi tải bảng ${tableName}:`, err);
-                    return [];
-                });
+        async function fetchDirectFromSheet(tableName, hasFilter = '') {
+            try {
+                const res = await fetch(`${APPS_SCRIPT_URL}?sheet=${encodeURIComponent(tableName)}&filter=${encodeURIComponent(hasFilter)}`);
+                
+                if (!res.ok) {
+                    throw new Error(`Lỗi HTTP status: ${res.status}`);
+                }
+                
+                return await res.json();
+            } catch (err) {
+                console.error(`Lỗi tải bảng ${tableName}:`, err);
+                throw new Error(`Không thể lấy dữ liệu từ bảng ${tableName}: ${err.message}`);
+            }
         }
 
         function fetchFromAppSheet(tableName, actionName = 'Find', hasFilter = '') {
@@ -2062,139 +2068,169 @@
         // Hàm khởi tạo trang - hiển thị bảng ngay khi có orders
         async function initPage() {
             const loadingEl = document.getElementById('loadingIndicator');
-            try {
-                loadingEl.style.display = 'block';
-                loadingEl.textContent = 'Đang tải dữ liệu...';
+            const errorEl = document.getElementById('errorMessage');
 
-                const [ordersData, productData, quang3DData, giaoHangPSXData, thoiGianHoanThanhData, printStatusPromise] = await Promise.all([
-                    fetchBatchedOrders(),
-                    fetchDirectFromSheet('san_pham'),
-                    fetchDirectFromSheet('thoi_gian_do_ga_lap_3d_quang'),
-                    fetchDirectFromSheet('Giao_Hang_PSX'),
-                    fetchDirectFromSheet('thoi_gian_hoan_thanh', 'thoigian_hoanthanh_IKTQBV_IKTQHD'),
-                    loadPrintStatus()
+            try {
+                // Reset trạng thái hiển thị
+                if (loadingEl) {
+                    loadingEl.style.display = 'block';
+                    loadingEl.textContent = 'Đang tải dữ liệu...';
+                }
+                if (errorEl) errorEl.style.display = 'none';
+
+                // Tải toàn bộ dữ liệu song song (dùng Promise.allSettled để không sập trang nếu 1 API phụ hỏng)
+                const results = await Promise.allSettled([
+                    fetchBatchedOrdersDescendingSort(),                                      // [0]
+                    fetchDirectFromSheet('san_pham'),                                       // [1]
+                    fetchDirectFromSheet('thoi_gian_do_ga_lap_3d_quang'),                    // [2]
+                    fetchDirectFromSheet('Giao_Hang_PSX'),                                   // [3]
+                    fetchDirectFromSheet('thoi_gian_hoan_thanh', 'thoigian_hoanthanh_IKTQBV_IKTQHD'), // [4]
+                    loadPrintStatus()                                                        // [5]
                 ]);
+
+                // Nếu API Đơn hàng (quan trọng nhất) bị sập -> coi như init thất bại
+                if (results[0].status === 'rejected') {
+                    throw new Error(`Không thể tải dữ liệu đơn hàng: ${results[0].reason?.message || 'Lỗi không xác định'}`);
+                }
+                
+                // Helper giải bọc kết quả safe
+                const getValue = (res, fallback = []) => (res.status === 'fulfilled' ? res.value : fallback);
+
+                const ordersData = getValue(results[0]);
+                const productData = getValue(results[1]);
+                const quang3DData = getValue(results[2]);
+                const giaoHangPSXData = getValue(results[3]);
+                const thoiGianHoanThanhData = getValue(results[4]);
 
                 // Lần đầu: nếu chưa khởi tạo, đánh dấu TẤT CẢ dữ liệu hiện tại là "Đã in"
                 if (!PRINT_STATUS_MAP['__initialized']) {
                     const allIds = ordersData.map(item => item.order_kd).filter(Boolean);
                     allIds.forEach(id => { PRINT_STATUS_MAP[id] = true; });
                     PRINT_STATUS_MAP['__initialized'] = true;
+
                     // Lưu lên server
-                    markAsPrinted([...allIds, '__initialized']);
+                    try {
+                        await markAsPrinted([...allIds, '__initialized']);
+                    } catch (e) {
+                        console.warn('Lưu trạng thái in lần đầu thất bại:', e);
+                    }
                 }
 
                 // Tạo Map để lookup nhanh
                 ORDER_DATA_MAP = new Map();
-                for (let i = 0; i < ordersData.length; i++) {
-                    ORDER_DATA_MAP.set(ordersData[i].order_kd, ordersData[i]);
-                }
+                ordersData.forEach(item => {
+                    if (item && item.order_kd) {
+                        ORDER_DATA_MAP.set(item.order_kd, item);
+                    }
+                });
 
                 // Hiển thị bảng NGAY — không chờ products, 3D, PSX
                 populateTable(ordersData);
-                loadingEl.style.display = 'none';
-
-                // Thiết lập sự kiện
-                document.getElementById('printSelectedBtn').addEventListener('click', printSelectedForms);
-                document.getElementById('selectAll').addEventListener('change', function () {
-                    const isChecked = this.checked;
-                    document.querySelectorAll('.row-checkbox').forEach(checkbox => {
-                        checkbox.checked = isChecked;
-                    });
-                });
-
-                // Click vào dòng để tự động toggle checkbox
-                $('#dataTable tbody').on('click', 'tr', function (e) {
-                    // Bỏ qua nếu click vào checkbox, nút, hoặc link
-                    const target = e.target;
-                    if (target.tagName === 'INPUT' || target.tagName === 'BUTTON' || target.tagName === 'A' || target.closest('button') || target.closest('a')) {
-                        return;
-                    }
-                    const checkbox = this.querySelector('.row-checkbox');
-                    if (checkbox) {
-                        checkbox.checked = !checkbox.checked;
-                    }
-                });
+                if (loadingEl) loadingEl.style.display = 'none';
 
                 // Các dữ liệu còn lại tải ngầm — khi nào xong thì cập nhật cache
-                for (let i = 0; i < productData.length; i++) {
-                    if (productData[i].ten_chi_tiet) {
-                        productCache[productData[i].ten_chi_tiet] = productData[i];
+                productData.forEach(item => {
+                    if (item?.ten_chi_tiet) {
+                        productCache[item.ten_chi_tiet] = item;
                     }
-                }
+                });
+
                 // Cập nhật lại bảng để hiện link "In bản vẽ"
                 if (dataTable) {
                     dataTable.rows().invalidate().draw(false);
                 }
 
-                for (let i = 0; i < quang3DData.length; i++) {
-                    const item = quang3DData[i];
-                    const key = item.ten_chi_tiet;
-                    const theLoai = item.the_loai; // Cột J: BV hoặc HD
-
+                quang3DData.forEach(item => {
+                    const key = item?.ten_chi_tiet;
+                    const theLoai = item?.the_loai;
                     if (key) {
-                        // Nếu chưa có chi tiết này, khởi tạo đối tượng 2 cấp
                         if (!quang3DCache[key]) {
-                            quang3DCache[key] = {
-                                BV: [],
-                                HD: []
-                            };
+                            quang3DCache[key] = { BV: [], HD: [] };
                         }
-
-                        // Đẩy dữ liệu vào mảng tương ứng (BV hoặc HD)
                         if (theLoai === 'BV') {
                             quang3DCache[key].BV.push(item);
-                        } else if (theLoai === 'HD') {
+                        }
+                        else if (theLoai === 'HD') {
                             quang3DCache[key].HD.push(item);
                         }
                     }
-                }
+                });
 
-                for (let i = 0; i < giaoHangPSXData.length; i++) {
-                    const item = giaoHangPSXData[i];
-                    if (item.order_kd && item.sl_da_xac_nhan_khi_giao_hang && item.noi_dung_da_xac_nhan_khi_giao_hang) {
+                giaoHangPSXData.forEach(item => {
+                    if (item?.order_kd && item?.sl_da_xac_nhan_khi_giao_hang && item?.noi_dung_da_xac_nhan_khi_giao_hang) {
                         if (!giaoHangPSXCache[item.order_kd]) {
                             giaoHangPSXCache[item.order_kd] = [];
                         }
                         giaoHangPSXCache[item.order_kd].push(item);
                     }
-                }
+                });
 
-                for (let i = 0; i < thoiGianHoanThanhData.length; i++) {
-                    const item = thoiGianHoanThanhData[i];
-                    const key = item.ten_chi_tiet;
-                    const ma_cv = item.ma_cv; // Cột ma_cv: IKTQBV hoặc IKTQHD
-
+                thoiGianHoanThanhData.forEach(item => {
+                    const key = item?.ten_chi_tiet;
+                    const ma_cv = item?.ma_cv;
                     if (key) {
-                        // Nếu chưa có chi tiết này, khởi tạo đối tượng 2 cấp
                         if (!thoiGianHoanThanhCache[key]) {
-                            thoiGianHoanThanhCache[key] = {
-                                IKTBV: [],
-                                IKTHD: [],
-                                IKTQBV: [],
-                                IKTQHD: []
-                            };
+                            thoiGianHoanThanhCache[key] = { IKTBV: [], IKTHD: [], IKTQBV: [], IKTQHD: [] };
                         }
-
-                        // Đẩy dữ liệu vào mảng tương ứng (BV hoặc HD)
-                        if (ma_cv === 'IKTBV') {
-                            thoiGianHoanThanhCache[key].IKTBV.push(item);
-                        } else if (ma_cv === 'IKTHD') {
-                            thoiGianHoanThanhCache[key].IKTHD.push(item);
-                        } else if (ma_cv === 'IKTQBV') {
-                            thoiGianHoanThanhCache[key].IKTQBV.push(item);
-                        } else if (ma_cv === 'IKTQHD') {
-                            thoiGianHoanThanhCache[key].IKTQHD.push(item);
+                        if (thoiGianHoanThanhCache[key][ma_cv]) {
+                            thoiGianHoanThanhCache[key][ma_cv].push(item);
                         }
                     }
-                }
-
+                });
             } catch (error) {
                 console.error('Lỗi khởi tạo trang - [initPage]:', error);
                 loadingEl.style.display = 'none';
                 document.getElementById('errorMessage').style.display = 'block';
                 document.getElementById('errorMessage').textContent = 'Đã xảy ra lỗi: ' + error.message;
             }
+        }
+
+        // Dùng cờ để đảm bảo chỉ đăng ký sự kiện 1 lần duy nhất trong toàn bộ lifecycle của trang
+        let isEventsBound = false;
+
+        function setupEventListeners() {
+            if (isEventsBound) return; // Nếu đã gán rồi thì bỏ qua
+
+            // 1. Nút "In các mục đã chọn"
+            const printBtn = document.getElementById('printSelectedBtn');
+            if (printBtn) {
+                printBtn.addEventListener('click', printSelectedForms);
+            }
+
+            // 2. Checkbox "Chọn tất cả"
+            const selectAllCheckbox = document.getElementById('selectAll');
+            if (selectAllCheckbox) {
+                selectAllCheckbox.addEventListener('change', function () {
+                    const isChecked = this.checked;
+                    document.querySelectorAll('.row-checkbox').forEach(checkbox => {
+                        checkbox.checked = isChecked;
+                    });
+                });
+            }
+
+            // 3. Ủy quyền sự kiện Click vào dòng trong Bảng (Event Delegation trên document/table container)
+            // Cách này giúp click vẫn hoạt động tốt ngay cả khi dataTable vẽ lại/reload dữ liệu nhiều lần
+            $(document).on('click', '#dataTable tbody tr', function (e) {
+                const target = e.target;
+
+                // Bỏ qua nếu click vào checkbox, nút, link hoặc phần tử bên trong chúng
+                if (
+                    target.tagName === 'INPUT' ||
+                    target.tagName === 'BUTTON' ||
+                    target.tagName === 'A' ||
+                    target.closest('button') ||
+                    target.closest('a')
+                ) {
+                    return;
+                }
+
+                const checkbox = this.querySelector('.row-checkbox');
+                if (checkbox) {
+                    checkbox.checked = !checkbox.checked;
+                }
+            });
+
+            isEventsBound = true; // Đánh dấu đã gán xong
         }
 
         // ===== TỰ ĐỘNG ĐIỀU CHỈNH (FLEXBOX - KHÔNG CẦN MARGIN) =====
@@ -2376,7 +2412,13 @@
         }
 
         // Khởi chạy khi trang đã tải xong
-        document.addEventListener('DOMContentLoaded', initPage);
+        document.addEventListener('DOMContentLoaded', () => {
+            // 1. Đăng ký các Event Listeners (chạy 1 lần duy nhất)
+            setupEventListeners();
+
+            // 2. Bắt đầu tải dữ liệu trang
+            initPage();
+        });
     </script>
 </body>
 
