@@ -2080,7 +2080,7 @@
 
                 // Tải toàn bộ dữ liệu song song (dùng Promise.allSettled để không sập trang nếu 1 API phụ hỏng)
                 const results = await Promise.allSettled([
-                    fetchBatchedOrdersDescendingSort(),                                      // [0]
+                    fetchBatchedOrders(),                                                   // [0]
                     fetchDirectFromSheet('san_pham'),                                       // [1]
                     fetchDirectFromSheet('thoi_gian_do_ga_lap_3d_quang'),                    // [2]
                     fetchDirectFromSheet('Giao_Hang_PSX'),                                   // [3]
