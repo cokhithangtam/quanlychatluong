@@ -1613,6 +1613,7 @@
             // Lưu ý, nếu tồn tại thì kết quả trả về là một dict với key là ten_chi_tiet, value là một mảng các dòng dữ liệu đo 3D quang
             const ten_chi_tiet_3D_item = quang3DCache[ten_chi_tiet];
             const ten_chi_tiet_thoigian_hoanthanh_item = thoiGianHoanThanhCache[ten_chi_tiet];
+
             if (ten_chi_tiet_3D_item) {
                 const defaultNote9 = 'KTRA: Chi tiết đo máy 3D quang => XN thực hiện:';
                 if (!ten_chi_tiet_thoigian_hoanthanh_item) {
@@ -1724,7 +1725,6 @@
                 fetchUrl = `${MY_CLOUDFLARE_PROXY}?url=${encodeURIComponent(drawingUrl)}`;
             } else {
                 // Unsupported environment fallback (no 3rd-party public proxy used)
-                console.error(`[Proxy Error] Unrecognized host: ${location.hostname}`);
                 throw new Error('Drawing proxy is not configured for this environment.');
             }
             const page = document.createElement('div');
@@ -1776,7 +1776,6 @@
                     img.style.cssText = 'width:100%; height:100%; object-fit:contain;';
                     page.appendChild(img);
                 } catch (err) {
-                    console.error('Lỗi render PDF:', err);
                     page.innerHTML = '<p style="text-align:center; font-size:14px; color:#999;">Không tải được bản vẽ PDF</p>';
                 }
             } else {
@@ -1822,7 +1821,6 @@
                 printArea.appendChild(formElement);
                 const qrContainer = formElement.querySelector('.qr-code');
                 if (qrContainer) {
-                    qrContainer.innerHTML = '';
                     new QRCode(qrContainer, { text: orderData.order_kd, width: 150, height: 150, correctLevel: QRCode.CorrectLevel.H });
                 }
 
@@ -1841,7 +1839,6 @@
                     setTimeout(() => { printArea.innerHTML = ''; }, 500);
                 }, 300);
             } catch (error) {
-                console.error('Lỗi in nhanh:', error);
                 loadingEl.style.display = 'none';
                 alert('Lỗi in nhanh: ' + error.message);
                 printArea.innerHTML = '';
@@ -1908,7 +1905,6 @@
 
                     const qrContainer = formElement.querySelector('.qr-code');
                     if (qrContainer) {
-                        qrContainer.innerHTML = '';
                         new QRCode(qrContainer, {
                             text: orderData.order_kd,
                             width: 150,
@@ -1937,7 +1933,6 @@
                 }, 300);
 
             } catch (error) {
-                console.error('Lỗi khi xử lý in phiếu:', error);
                 loadingEl.style.display = 'none';
                 document.getElementById('errorMessage').style.display = 'block';
                 document.getElementById('errorMessage').textContent = 'Đã xảy ra lỗi khi in phiếu: ' + error.message;
@@ -1958,19 +1953,19 @@
         }
 
         function formatTime(dateString) {
-          if (!dateString) return '';
-          
-          const date = new Date(dateString);
-          // Kiểm tra nếu date không hợp lệ
-          if (isNaN(date.getTime())) return dateString; 
-        
-          // Lấy giờ và phút theo giờ địa phương
-          const hours = String(date.getHours()).padStart(2, '0');
-          const minutes = String(date.getMinutes()).padStart(2, '0');
-          
-          return `${hours}:${minutes}`; // Trả về "05:45"
+            if (!dateString) return '';
+
+            const date = new Date(dateString);
+            // Kiểm tra nếu date không hợp lệ
+            if (isNaN(date.getTime())) return dateString;
+
+            // Lấy giờ và phút theo giờ địa phương
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+
+            return `${hours}:${minutes}`; // Trả về "05:45"
         }
-        
+
         // ******************************************************************** //
         //                                                                      //
         //                          FETCH SECTION                               //
@@ -1982,14 +1977,13 @@
         async function fetchDirectFromSheet(tableName, hasFilter = '') {
             try {
                 const res = await fetch(`${APPS_SCRIPT_URL}?sheet=${encodeURIComponent(tableName)}&filter=${encodeURIComponent(hasFilter)}`);
-                
+
                 if (!res.ok) {
                     throw new Error(`Lỗi HTTP status: ${res.status}`);
                 }
-                
+
                 return await res.json();
             } catch (err) {
-                console.error(`Lỗi tải bảng ${tableName}:`, err);
                 throw new Error(`Không thể lấy dữ liệu từ bảng ${tableName}: ${err.message}`);
             }
         }
@@ -2033,7 +2027,6 @@
                 })
                 .then(data => Array.isArray(data) ? data : [])
                 .catch(error => {
-                    console.error(`Lỗi khi lấy dữ liệu từ bảng ${tableName}:`, error);
                     return [];
                 });
         }
@@ -2050,9 +2043,36 @@
                 // Lọc dữ liệu hợp lệ (có order_kd và ten_chi_tiet)
                 const filteredData = response.filter(item => item.order_kd && item.ten_chi_tiet);
 
-                return filteredData.reverse();
+                // Sắp xếp theo _RowNumber giảm dần (in-place, không tạo mảng mới)
+                filteredData.sort((a, b) => {
+                    if (a._RowNumber !== undefined && b._RowNumber !== undefined) {
+                        return b._RowNumber - a._RowNumber;
+                    }
+                    return 0;
+                });
+
+                return filteredData;
             } catch (error) {
-                console.error('Lỗi khi lấy dữ liệu đơn hàng:', error);
+                throw error;
+            }
+        }
+
+        async function fetchBatchedOrdersDescendingSort() {
+            try {
+                const response = await fetchDirectFromSheet('so_giao_nhan');
+
+                if (!Array.isArray(response)) {
+                    return [];
+                }
+
+                // Lọc dữ liệu hợp lệ (có order_kd và ten_chi_tiet)
+                const filteredData = response.filter(item => item.order_kd && item.ten_chi_tiet);
+
+                // Sắp xếp giảm dần (Mới nhất -> Cũ nhất)
+                filteredData.reverse();
+
+                return filteredData;
+            } catch (error) {
                 throw error;
             }
         }
@@ -2080,7 +2100,7 @@
 
                 // Tải toàn bộ dữ liệu song song (dùng Promise.allSettled để không sập trang nếu 1 API phụ hỏng)
                 const results = await Promise.allSettled([
-                    fetchBatchedOrders(),                                                   // [0]
+                    fetchBatchedOrdersDescendingSort(),                                      // [0]
                     fetchDirectFromSheet('san_pham'),                                       // [1]
                     fetchDirectFromSheet('thoi_gian_do_ga_lap_3d_quang'),                    // [2]
                     fetchDirectFromSheet('Giao_Hang_PSX'),                                   // [3]
@@ -2092,7 +2112,7 @@
                 if (results[0].status === 'rejected') {
                     throw new Error(`Không thể tải dữ liệu đơn hàng: ${results[0].reason?.message || 'Lỗi không xác định'}`);
                 }
-                
+
                 // Helper giải bọc kết quả safe
                 const getValue = (res, fallback = []) => (res.status === 'fulfilled' ? res.value : fallback);
 
@@ -2178,7 +2198,6 @@
                     }
                 });
             } catch (error) {
-                console.error('Lỗi khởi tạo trang - [initPage]:', error);
                 loadingEl.style.display = 'none';
                 document.getElementById('errorMessage').style.display = 'block';
                 document.getElementById('errorMessage').textContent = 'Đã xảy ra lỗi: ' + error.message;
