@@ -1020,6 +1020,13 @@
             </div>
 
         </div>
+        <!-- Khối hiển thị tiến độ tải từng bảng -->
+        <div id="fetchStatusIndicator"
+            style="display: none; margin-bottom: 10px; padding: 10px; background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; font-size: 13px;">
+            <strong>Tiến độ tải dữ liệu <span id="fetchProgress"
+                    style="color: #16a34a; margin-left: 4px;">(0/5)</span>:</strong>
+            <div id="statusList" style="margin-top: 5px; display: flex; flex-wrap: wrap; gap: 8px;"></div>
+        </div>
 
         <div id="dataTableSection" class="table-responsive table-content">
             <table id="dataTable" class="table table-striped table-bordered" style="width:100%; display: none;">
@@ -1238,8 +1245,6 @@
                 cellGhiChu.style.fontWeight = '600';
                 cellGhiChu.style.color = isPrinted ? '#2e7d32' : '#e65100';
                 cellGhiChu.setAttribute('data-order-status', item.order_kd);
-
-
             });
 
             // Hủy DataTable cũ nếu đã tồn tại
@@ -1972,7 +1977,7 @@
         //                                                                      //
         // ******************************************************************** //
 
-        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzkXGgwt0wfLl2wKSs8GfMPh6CBIcp62AfpWY_HzbDBDBvHOnVZCsLGH2cuRysJukJm/exec';
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzHmPLLZtauSgsJpIpMADro0OptQbRfDp1hnMgrso5dSRhDwV27er-2giT9SUc2F06W/exec';
 
         async function fetchDirectFromSheet(tableName, hasFilter = '') {
             try {
@@ -2034,10 +2039,10 @@
         // Fetch dữ liệu đơn hàng
         async function fetchBatchedOrders() {
             try {
-                const response = await fetchDirectFromSheet('so_giao_nhan');
+                const response = await fetchFromAppSheet('so_giao_nhan');
 
-                if (!Array.isArray(response)) {
-                    return [];
+                if (!response || !Array.isArray(response)) {
+                    throw new Error('Dữ liệu sổ giao nhận trả về không đúng định dạng mảng.');
                 }
 
                 // Lọc dữ liệu hợp lệ (có order_kd và ten_chi_tiet)
@@ -2059,10 +2064,12 @@
 
         async function fetchBatchedOrdersDescendingSort() {
             try {
-                const response = await fetchDirectFromSheet('so_giao_nhan');
+                // const response = await fetchDirectFromSheet('so_giao_nhan');
+                const response = await fetchFromAppSheet('so_giao_nhan');
 
-                if (!Array.isArray(response)) {
-                    return [];
+                // Nếu Google Sheet / Apps Script trả về null, undefined hoặc object lỗi thay vì Mảng
+                if (!response || !Array.isArray(response)) {
+                    throw new Error('Dữ liệu sổ giao nhận trả về không đúng định dạng mảng.');
                 }
 
                 // Lọc dữ liệu hợp lệ (có order_kd và ten_chi_tiet)
@@ -2077,114 +2084,173 @@
             }
         }
 
+        // Biến toàn cục hoặc cục bộ dùng cho bộ đếm cho số bảng cần fetch data
+        let completedCount = 0;
+        const TOTAL_TASKS = 5; // Tổng số bảng dữ liệu cần fetch (1 bảng chính + 4 bảng phụ)
+
+        // Hàm reset bộ đếm khi bắt đầu initPage
+        function resetFetchProgress() {
+            completedCount = 0;
+            const progressEl = document.getElementById('fetchProgress');
+            if (progressEl) {
+                progressEl.textContent = `(0/${TOTAL_TASKS})`;
+            }
+        }
+
+        // Hàm cập nhật bộ đếm khi có 1 task fetch thành công
+        function incrementFetchProgress() {
+            completedCount++;
+            const progressEl = document.getElementById('fetchProgress');
+            if (progressEl) {
+                progressEl.textContent = `(${completedCount}/${TOTAL_TASKS})`;
+            }
+        }
+
+        function updateFetchStatus(label, isSuccess, errorMsg = '') {
+            const statusContainer = document.getElementById('fetchStatusIndicator');
+            const statusList = document.getElementById('statusList');
+
+            if (statusContainer) statusContainer.style.display = 'block';
+
+            // 💥 CHỈ tăng bộ đếm nếu fetch thành công
+            if (isSuccess) {
+                incrementFetchProgress();
+            }
+
+            if (statusList) {
+                const badge = document.createElement('span');
+                badge.style.padding = '3px 8px';
+                badge.style.borderRadius = '4px';
+                badge.style.fontSize = '12px';
+                badge.style.fontWeight = '500';
+
+                if (isSuccess) {
+                    badge.style.backgroundColor = '#dcfce7';
+                    badge.style.color = '#15803d';
+                    badge.style.border = '1px solid #86efac';
+                    badge.innerHTML = `✓ ${label}`;
+                } else {
+                    badge.style.backgroundColor = '#fee2e2';
+                    badge.style.color = '#b91c1c';
+                    badge.style.border = '1px solid #fca5a5';
+                    badge.innerHTML = `✗ ${label} ${errorMsg ? '(' + errorMsg + ')' : ''}`;
+                }
+
+                statusList.appendChild(badge);
+            }
+        }
+
         // ******************************************************************** //
         // ******************************************************************** //
         //                                                                      //
-        //                          MAIN RUN PART                               //
-        //                                                                      //
-        // ******************************************************************** //
-        // ******************************************************************** //
+        //                    MAIN RUN PART - START                             //
 
         // Hàm khởi tạo trang - hiển thị bảng ngay khi có orders
         async function initPage() {
             const loadingEl = document.getElementById('loadingIndicator');
             const errorEl = document.getElementById('errorMessage');
+            const statusList = document.getElementById('statusList');
 
             try {
-                // Reset trạng thái hiển thị
                 if (loadingEl) {
                     loadingEl.style.display = 'block';
                     loadingEl.textContent = 'Đang tải dữ liệu...';
                 }
                 if (errorEl) errorEl.style.display = 'none';
+                if (statusList) statusList.innerHTML = '';
 
-                // Tải toàn bộ dữ liệu song song (dùng Promise.allSettled để không sập trang nếu 1 API phụ hỏng)
-                const results = await Promise.allSettled([
-                    fetchBatchedOrdersDescendingSort(),                                      // [0]
-                    fetchDirectFromSheet('san_pham'),                                       // [1]
-                    fetchDirectFromSheet('thoi_gian_do_ga_lap_3d_quang'),                    // [2]
-                    fetchDirectFromSheet('Giao_Hang_PSX'),                                   // [3]
-                    fetchDirectFromSheet('thoi_gian_hoan_thanh', 'thoigian_hoanthanh_IKTQBV_IKTQHD'), // [4]
-                    loadPrintStatus()                                                        // [5]
-                ]);
+                // Reset bộ đếm về (0/5) mỗi lần load lại trang
+                resetFetchProgress();
 
-                // Nếu API Đơn hàng (quan trọng nhất) bị sập -> coi như init thất bại
-                if (results[0].status === 'rejected') {
-                    throw new Error(`Không thể tải dữ liệu đơn hàng: ${results[0].reason?.message || 'Lỗi không xác định'}`);
+                // 1. Tải đơn hàng trước
+                const ordersData = await fetchBatchedOrdersDescendingSort();
+
+                if (!ordersData || !Array.isArray(ordersData)) {
+                    updateFetchStatus('Đơn hàng', false, 'Rỗng hoặc Lỗi! Vui lòng chụp ảnh màn hình và báo IT xử lý.');
+                    throw new Error('Không thể khởi tạo: Dữ liệu đơn hàng trống hoặc bị lỗi.');
                 }
 
-                // Helper giải bọc kết quả safe
-                const getValue = (res, fallback = []) => (res.status === 'fulfilled' ? res.value : fallback);
+                // Báo giao diện: Đã tải xong đơn hàng!
+                updateFetchStatus('Sổ giao nhận (Đơn hàng)', true);
 
-                const ordersData = getValue(results[0]);
-                const productData = getValue(results[1]);
-                const quang3DData = getValue(results[2]);
-                const giaoHangPSXData = getValue(results[3]);
-                const thoiGianHoanThanhData = getValue(results[4]);
-
-                // Lần đầu: nếu chưa khởi tạo, đánh dấu TẤT CẢ dữ liệu hiện tại là "Đã in"
+                // 2. Tạo Map & Đánh dấu Print Status ban đầu
                 if (!PRINT_STATUS_MAP['__initialized']) {
-                    const allIds = ordersData.map(item => item.order_kd).filter(Boolean);
+                    const allIds = ordersData.map(item => item?.order_kd).filter(Boolean);
                     allIds.forEach(id => { PRINT_STATUS_MAP[id] = true; });
                     PRINT_STATUS_MAP['__initialized'] = true;
-
-                    // Lưu lên server
-                    try {
-                        await markAsPrinted([...allIds, '__initialized']);
-                    } catch (e) {
-                        console.warn('Lưu trạng thái in lần đầu thất bại:', e);
-                    }
+                    markAsPrinted([...allIds, '__initialized']).catch(e => console.warn(e));
                 }
 
-                // Tạo Map để lookup nhanh
                 ORDER_DATA_MAP = new Map();
                 ordersData.forEach(item => {
-                    if (item && item.order_kd) {
-                        ORDER_DATA_MAP.set(item.order_kd, item);
-                    }
+                    if (item && item.order_kd) ORDER_DATA_MAP.set(item.order_kd, item);
                 });
 
-                // Hiển thị bảng NGAY — không chờ products, 3D, PSX
+                // ⚡ 3. HIỂN THỊ BẢNG NGAY TẠI ĐÂY — TẮT LOADING NGAY LẬP TỨC!
                 populateTable(ordersData);
                 if (loadingEl) loadingEl.style.display = 'none';
 
-                // Các dữ liệu còn lại tải ngầm — khi nào xong thì cập nhật cache
+                // 3. Tải ngầm các bảng còn lại và báo trạng thái ngay khi từng bảng xong
+                const tasks = [
+                    { name: 'Sản phẩm', promise: fetchDirectFromSheet('san_pham') },
+                    { name: 'Đồ gá 3D Quang', promise: fetchDirectFromSheet('thoi_gian_do_ga_lap_3d_quang') },
+                    { name: 'Giao hàng PSX', promise: fetchDirectFromSheet('Giao_Hang_PSX') },
+                    { name: 'Thời gian hoàn thành', promise: fetchDirectFromSheet('thoi_gian_hoan_thanh', 'thoigian_hoanthanh_IKTQBV_IKTQHD') },
+                    { name: 'Trạng thái in', promise: loadPrintStatus() }
+                ];
+
+                // Đăng ký báo trạng thái Real-time cho từng API phụ
+                const results = await Promise.allSettled(
+                    tasks.map(task =>
+                        task.promise
+                            .then(res => {
+                                updateFetchStatus(task.name, true);
+                                return res;
+                            })
+                            .catch(err => {
+                                updateFetchStatus(task.name, false, err.message);
+                                throw err;
+                            })
+                    )
+                );
+
+                // Giải bọc kết quả safe
+                const getValue = (res) => (res && res.status === 'fulfilled' && Array.isArray(res.value) ? res.value : []);
+
+                const productData = getValue(results[0]);
+                const quang3DData = getValue(results[1]);
+                const giaoHangPSXData = getValue(results[2]);
+                const thoiGianHoanThanhData = getValue(results[3]);
+
+                // Cập nhật Cache sản phẩm
                 productData.forEach(item => {
-                    if (item?.ten_chi_tiet) {
-                        productCache[item.ten_chi_tiet] = item;
-                    }
+                    if (item?.ten_chi_tiet) productCache[item.ten_chi_tiet] = item;
                 });
 
-                // Cập nhật lại bảng để hiện link "In bản vẽ"
                 if (dataTable) {
                     dataTable.rows().invalidate().draw(false);
                 }
 
+                // Cập nhật Cache 3D Quang
                 quang3DData.forEach(item => {
                     const key = item?.ten_chi_tiet;
                     const theLoai = item?.the_loai;
                     if (key) {
-                        if (!quang3DCache[key]) {
-                            quang3DCache[key] = { BV: [], HD: [] };
-                        }
-                        if (theLoai === 'BV') {
-                            quang3DCache[key].BV.push(item);
-                        }
-                        else if (theLoai === 'HD') {
-                            quang3DCache[key].HD.push(item);
-                        }
+                        if (!quang3DCache[key]) quang3DCache[key] = { BV: [], HD: [] };
+                        if (theLoai === 'BV') quang3DCache[key].BV.push(item);
+                        else if (theLoai === 'HD') quang3DCache[key].HD.push(item);
                     }
                 });
 
+                // Cập nhật Cache Giao Hàng PSX
                 giaoHangPSXData.forEach(item => {
-                    if (item?.order_kd && item?.sl_da_xac_nhan_khi_giao_hang && item?.noi_dung_da_xac_nhan_khi_giao_hang) {
-                        if (!giaoHangPSXCache[item.order_kd]) {
-                            giaoHangPSXCache[item.order_kd] = [];
-                        }
+                    if (item?.order_kd && item?.sl_da_xac_nhan_khi_giao_hang) {
+                        if (!giaoHangPSXCache[item.order_kd]) giaoHangPSXCache[item.order_kd] = [];
                         giaoHangPSXCache[item.order_kd].push(item);
                     }
                 });
 
+                // Cập nhật Cache Thời Gian Hoàn Thành
                 thoiGianHoanThanhData.forEach(item => {
                     const key = item?.ten_chi_tiet;
                     const ma_cv = item?.ma_cv;
@@ -2192,17 +2258,26 @@
                         if (!thoiGianHoanThanhCache[key]) {
                             thoiGianHoanThanhCache[key] = { IKTBV: [], IKTHD: [], IKTQBV: [], IKTQHD: [] };
                         }
-                        if (thoiGianHoanThanhCache[key][ma_cv]) {
-                            thoiGianHoanThanhCache[key][ma_cv].push(item);
+                        if (!Array.isArray(thoiGianHoanThanhCache[key][ma_cv])) {
+                            thoiGianHoanThanhCache[key][ma_cv] = [];
                         }
+                        thoiGianHoanThanhCache[key][ma_cv].push(item);
                     }
                 });
+
             } catch (error) {
-                loadingEl.style.display = 'none';
-                document.getElementById('errorMessage').style.display = 'block';
-                document.getElementById('errorMessage').textContent = 'Đã xảy ra lỗi: ' + error.message;
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (errorEl) {
+                    errorEl.style.display = 'block';
+                    errorEl.textContent = 'Đã xảy ra lỗi: ' + error.message;
+                }
             }
         }
+
+        //                      MAIN RUN PART - END                             //
+        //                                                                      //
+        // ******************************************************************** //
+        // ******************************************************************** //
 
         // Dùng cờ để đảm bảo chỉ đăng ký sự kiện 1 lần duy nhất trong toàn bộ lifecycle của trang
         let isEventsBound = false;
