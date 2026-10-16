@@ -1994,7 +1994,6 @@
         }
 
         function fetchFromAppSheet(tableName, actionName = 'Find', hasFilter = '') {
-            // Constants for AppSheet connection
             const appId = 'e1339939-5987-4d7a-8c73-436348abf6b7';
             const accessKey = 'V2-WTcys-x7QFl-Z5SzF-zSe7D-qciuV-yaUHk-CDGEe-oSexL';
             const region = 'www';
@@ -2007,13 +2006,9 @@
                 },
                 "Rows": []
             };
-            if (hasFilter !== '') {
-                if (hasFilter === 'thoigian_hoanthanh_IKTQBV_IKTQHD') {
 
-                    // Lưu ý, việc này phụ thuộc hoàn toàn vào cấu trúc hiện tại xây trên AppSheet và Google Sheet.
-                    // Nếu có thay đổi, cần kiểm tra lại. Cấu trúc hiện tại là bảng thoi_gian_hoan_thanh có cột ma_cv, và các giá trị cần lọc là IKTQBV, IKTQHD, IKTBV, IKTQHD.
-                    payload.Properties['Selector'] = 'FILTER("thoi_gian_hoan_thanh", IN([ma_cv], LIST("IKTQBV", "IKTQHD", "IKTBV", "IKTHD")))';
-                }
+            if (hasFilter === 'thoigian_hoanthanh_IKTQBV_IKTQHD') {
+                payload.Properties['Selector'] = 'FILTER("thoi_gian_hoan_thanh", IN([ma_cv], LIST("IKTQBV", "IKTQHD", "IKTBV", "IKTHD")))';
             }
 
             return fetch(`https://${region}.appsheet.com/api/v2/apps/${appId}/tables/${tableName}/Action`, {
@@ -2030,9 +2025,15 @@
                     }
                     return response.json();
                 })
-                .then(data => Array.isArray(data) ? data : [])
+                .then(data => {
+                    if (!Array.isArray(data)) {
+                        throw new Error(`Dữ liệu bảng ${tableName} trả về không đúng định dạng Mảng.`);
+                    }
+                    return data;
+                })
                 .catch(error => {
-                    return [];
+                    // Ném lỗi tiếp ra ngoài để Promise.allSettled / updateFetchStatus ghi nhận trạng thái thất bại (✗)
+                    throw new Error(`Không thể lấy dữ liệu từ bảng ${tableName}: ${error.message}`);
                 });
         }
 
@@ -2190,13 +2191,13 @@
                 populateTable(ordersData);
                 if (loadingEl) loadingEl.style.display = 'none';
 
-                // 3. Tải ngầm các bảng còn lại và báo trạng thái ngay khi từng bảng xong
+                // Tải ngầm 5 bảng phụ còn lại hoàn toàn từ AppSheet REST API
                 const tasks = [
-                    { name: 'Sản phẩm', promise: fetchDirectFromSheet('san_pham') },
-                    { name: 'Đồ gá 3D Quang', promise: fetchDirectFromSheet('thoi_gian_do_ga_lap_3d_quang') },
-                    { name: 'Giao hàng PSX', promise: fetchDirectFromSheet('Giao_Hang_PSX') },
-                    { name: 'Thời gian hoàn thành', promise: fetchDirectFromSheet('thoi_gian_hoan_thanh', 'thoigian_hoanthanh_IKTQBV_IKTQHD') },
-                    { name: 'Trạng thái in', promise: loadPrintStatus() }
+                    { name: 'Sản phẩm', fn: () => fetchFromAppSheet('san_pham') },
+                    { name: 'Đồ gá 3D Quang', fn: () => fetchFromAppSheet('thoi_gian_do_ga_lap_3d_quang') },
+                    { name: 'Giao hàng PSX', fn: () => fetchFromAppSheet('Giao_Hang_PSX') },
+                    { name: 'Thời gian hoàn thành', fn: () => fetchFromAppSheet('thoi_gian_hoan_thanh', 'Find', 'thoigian_hoanthanh_IKTQBV_IKTQHD') },
+                    { name: 'Trạng thái in', fn: () => loadPrintStatus() }
                 ];
 
                 // Đăng ký báo trạng thái Real-time cho từng API phụ
