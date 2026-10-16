@@ -2200,19 +2200,18 @@
                     { name: 'Trạng thái in', fn: () => loadPrintStatus() }
                 ];
 
-                // Đăng ký báo trạng thái Real-time cho từng API phụ
                 const results = await Promise.allSettled(
-                    tasks.map(task =>
-                        task.promise
-                            .then(res => {
-                                updateFetchStatus(task.name, true);
-                                return res;
-                            })
-                            .catch(err => {
-                                updateFetchStatus(task.name, false, err.message);
-                                throw err;
-                            })
-                    )
+                    tasks.map(async (task) => {
+                        try {
+                            // Dùng await giúp bọc an toàn cả những hàm sync lẫn async
+                            const res = await task.fn();
+                            updateFetchStatus(task.name, true);
+                            return res;
+                        } catch (err) {
+                            updateFetchStatus(task.name, false, err.message);
+                            throw err; // Throw tiếp để Promise.allSettled ghi nhận trạng thái 'rejected'
+                        }
+                    })
                 );
 
                 // Giải bọc kết quả safe
